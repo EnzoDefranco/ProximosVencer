@@ -5,7 +5,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ItemController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/items');
 });
 
 // Opcional: si querés que el inicio vaya directo a la grilla
