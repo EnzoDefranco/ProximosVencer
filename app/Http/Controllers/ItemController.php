@@ -10,30 +10,36 @@ class ItemController extends Controller
 {
     /**
      * GET /items
-     * Lee DIRECTO de la tabla del ETL (conexión 'erp'), calcula KPIs y pagina.
+     * Muestra SOLO la última fechaHoy desde CURRENT.
      */
     public function index(Request $request)
     {
-        $fechaHoy = $request->input('fechaHoy');
-        $q        = trim((string) $request->input('q')); // buscador opcional
+        $q = trim((string) $request->input('q'));
 
-        // Fechas disponibles (distinct) desde la tabla del ETL
-        $fechas = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer')
-            ->select('fechaHoy')
-            ->distinct()
-            ->orderByDesc('fechaHoy')
-            ->pluck('fechaHoy');
+        // Última fechaHoy tomada de CURRENT
+        $ultimaFecha = DB::connection('erp')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->max('fechaHoy');
 
-        if (!$fechaHoy && $fechas->count() > 0) {
-            $fechaHoy = $fechas->first();
+        if (!$ultimaFecha) {
+            return view('items.index', [
+                'items'       => collect([]),
+                'fechaHoy'    => null,
+                'ultimaSync'  => null,
+                'ultimoCheck' => null,
+                'creadoAt'    => null,
+                'puedeEditar' => Gate::allows('validar-vencimientos'),
+                'q'           => $q,
+                'stats'       => ['total'=>0,'validados'=>0,'urgentes'=>0,'porc'=>0],
+                'ultimaFecha' => null,
+            ]);
         }
 
-        // Query base (SIN select todavía) para poder clonar y contar
+        // Base query: CURRENT en la última fecha
         $qbBase = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer as p')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current as p')
             ->where('p.activo', 1)
-            ->when($fechaHoy, fn($qq) => $qq->where('p.fechaHoy', $fechaHoy))
+            ->whereDate('p.fechaHoy', $ultimaFecha)
             ->when($q !== '', function ($qq) use ($q) {
                 $like = '%'.str_replace(['%','_'], ['\\%','\\_'], $q).'%';
                 $qq->where(function ($w) use ($like, $q) {
@@ -45,7 +51,7 @@ class ItemController extends Controller
                 });
             });
 
-        // ---------- KPIs (sobre el filtro actual) ----------
+        // KPIs
         $total     = (clone $qbBase)->count();
         $validados = (clone $qbBase)->where('p.checked', 1)->count();
         $urgentes  = (clone $qbBase)
@@ -59,9 +65,8 @@ class ItemController extends Controller
             'urgentes'  => $urgentes,
             'porc'      => $total ? round($validados * 100 / $total) : 0,
         ];
-        // ---------------------------------------------------
 
-        // Ahora sí: select + order + paginate para la grilla
+        // Select + paginate (incluye delta_unidades del current)
         $items = (clone $qbBase)
             ->select([
                 'p.id',
@@ -73,54 +78,48 @@ class ItemController extends Controller
                 'p.diasRestantes',
                 'p.checked',
                 'p.created_at',
+                'p.delta_unidades', // delta directo del ETL current
             ])
             ->orderBy('p.fechaVencimiento')
             ->paginate(50)
-            ->appends(['fechaHoy' => $fechaHoy, 'q' => $q]);
+            ->appends(['q' => $q]);
 
-        // Info de última sync (para el encabezado)
-        //“última ingesta”. Momento en que tu ETL volvió a cargar/actualizar esa fila en la sincronización más reciente.
+        // Info superior (de CURRENT)
         $ultimaSync = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
             ->max('last_sync_at');
-        
-        // created_at: “nacimiento” de la fila. Se fija cuando esa fila se insertó por primera vez en la tabla y no debería cambiar más.
+
         $creadoAt = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
             ->min('created_at');
 
-        // Ultimo check en los items (para permisos de edición)
         $ultimoCheck = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
             ->whereNotNull('checked_at')
             ->max('checked_at');
-        
 
         $puedeEditar = Gate::allows('validar-vencimientos');
 
         return view('items.index', compact(
             'items',
-            'fechas',
-            'fechaHoy',
             'ultimaSync',
             'ultimoCheck',
             'creadoAt',
             'puedeEditar',
             'q',
-            'stats'
-        ));
+            'stats',
+            'ultimaFecha'
+        ))->with('fechaHoy', $ultimaFecha);
     }
 
     /**
      * POST /items/confirmar
-     * Marca/destilda checks en la MISMA tabla del ETL (por id).
-     * Usa transacción y actualiza en lotes.
+     * Actualiza checks en CURRENT (última fecha).
      */
     public function confirmar(Request $request)
     {
         abort_unless(Gate::allows('validar-vencimientos'), 403);
 
-        // Arrays tal cual vienen del form (ids como STRING por BIGINT)
         $checkedIds = collect($request->input('checked', []))
             ->filter(fn($v) => $v !== null && $v !== '')
             ->map(fn($v) => (string) $v)
@@ -141,14 +140,11 @@ class ItemController extends Controller
         $userId     = $request->user()->id;
         $now        = now();
 
-        // Todo-or-nada
         DB::connection('erp')->transaction(function () use ($checkedIds, $noMarcados, $userId, $now) {
-
-            // Tildar seleccionados
             if ($checkedIds->isNotEmpty()) {
                 foreach ($checkedIds->chunk(500) as $chunk) {
                     DB::connection('erp')
-                        ->table('ENRO_DIGIP_articulosProximosAVencer')
+                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
                         ->whereIn('id', $chunk->all())
                         ->update([
                             'checked'    => 1,
@@ -158,12 +154,10 @@ class ItemController extends Controller
                         ]);
                 }
             }
-
-            // Destildar los visibles que NO vinieron en checked[]
             if ($noMarcados->isNotEmpty()) {
                 foreach ($noMarcados->chunk(500) as $chunk) {
                     DB::connection('erp')
-                        ->table('ENRO_DIGIP_articulosProximosAVencer')
+                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
                         ->whereIn('id', $chunk->all())
                         ->update([
                             'checked'    => 0,
@@ -175,9 +169,8 @@ class ItemController extends Controller
             }
         });
 
-        // Verificación post-commit (diagnóstico rápido)
         $verificacion = DB::connection('erp')
-            ->table('ENRO_DIGIP_articulosProximosAVencer')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
             ->whereIn('id', $visibleIds)
             ->selectRaw('SUM(checked=1) as tildados, COUNT(*) as visibles')
             ->first();
@@ -186,5 +179,54 @@ class ItemController extends Controller
             'ok',
             "Cambios confirmados. Tildados: {$verificacion->tildados}/{$verificacion->visibles}"
         );
+    }
+
+    /**
+     * GET /items/{codigo}/historial
+     * Devuelve HTML para hover o modal con snapshots de ese ARTÍCULO (todas las filas del snapshot).
+     * Si ?compact=1, devuelve versión reducida para hovercard.
+     */
+    public function historial(Request $request, string $codigo)
+    {
+        $rows = DB::connection('erp')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_snapshot')
+            ->where('ArticuloCodigo', $codigo)
+            ->orderByDesc('fechaHoy')
+            ->orderBy('fechaVencimiento')
+            ->select([
+                'ArticuloCodigo',
+                'fechaVencimiento',
+                'fechaHoy',
+                'Unidades',
+                'diasRestantes',
+            ])
+            ->get();
+
+        if ((string)$request->query('compact') === '1') {
+            // calcular delta histórico (entre snapshots)
+            $rows = $rows->values();
+            $withDelta = [];
+            for ($i = 0; $i < count($rows); $i++) {
+                $curr = (object) $rows[$i];
+                $prev = $rows[$i+1] ?? null; // snapshot más viejo
+                $curr->delta_unidades = null;
+                if ($prev) {
+                    $currUnits = is_null($curr->Unidades) ? 0 : (int)$curr->Unidades;
+                    $prevUnits = is_null($prev->Unidades) ? 0 : (int)$prev->Unidades;
+                    $curr->delta_unidades = $currUnits - $prevUnits;
+                }
+                $withDelta[] = $curr;
+            }
+
+            return view('items._historial_compact', [
+                'codigo' => $codigo,
+                'rows'   => collect($withDelta)->take(8), // últimos 8 para tooltip
+            ]);
+        }
+
+        return view('items._historial', [
+            'codigo' => $codigo,
+            'rows'   => $rows,
+        ]);
     }
 }
