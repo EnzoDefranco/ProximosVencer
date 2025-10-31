@@ -72,15 +72,22 @@ class ItemController extends Controller
                 'p.Unidades',
                 'p.diasRestantes',
                 'p.checked',
+                'p.created_at',
             ])
             ->orderBy('p.fechaVencimiento')
             ->paginate(50)
             ->appends(['fechaHoy' => $fechaHoy, 'q' => $q]);
 
         // Info de última sync (para el encabezado)
+        //“última ingesta”. Momento en que tu ETL volvió a cargar/actualizar esa fila en la sincronización más reciente.
         $ultimaSync = DB::connection('erp')
             ->table('ENRO_DIGIP_articulosProximosAVencer')
-            ->max('created_at');
+            ->max('last_sync_at');
+        
+        // created_at: “nacimiento” de la fila. Se fija cuando esa fila se insertó por primera vez en la tabla y no debería cambiar más.
+        $creadoAt = DB::connection('erp')
+            ->table('ENRO_DIGIP_articulosProximosAVencer')
+            ->min('created_at');
 
         // Ultimo check en los items (para permisos de edición)
         $ultimoCheck = DB::connection('erp')
@@ -97,6 +104,7 @@ class ItemController extends Controller
             'fechaHoy',
             'ultimaSync',
             'ultimoCheck',
+            'creadoAt',
             'puedeEditar',
             'q',
             'stats'

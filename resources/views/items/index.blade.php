@@ -113,6 +113,7 @@
             <tr class="text-left text-gray-600">
               <th class="p-3 w-12">OK</th>
               <th class="p-3">Artículo</th>
+              <th class="p-3">Creado</th>
               <th class="p-3">Descripción</th>
               <th class="p-3">Vence</th>
               <th class="p-3 text-right">Unidades</th>
@@ -142,6 +143,7 @@
                   @endif
                 </td>
                 <td class="p-3 font-mono text-gray-900">{{ $row->ArticuloCodigo }}</td>
+                <td class="p-3 text-gray-800">{{ \Carbon\Carbon::parse($row->created_at)->format('d/m/Y') }}</td>
                 <td class="p-3 text-gray-800">{{ $row->ArticuloDescripcion }}</td>
                 <td class="p-3">{{ \Carbon\Carbon::parse($row->fechaVencimiento)->format('d/m/Y') }}</td>
                 <td class="p-3 text-right tabular-nums">{{ number_format($row->Unidades ?? 0, 0, ',', '.') }}</td>

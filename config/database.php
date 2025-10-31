@@ -79,9 +79,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            // 👇 clave: ejecuta SET time_zone en cada conexión PDO
+            'options' => extension_loaded('pdo_mysql')
+            ? array_filter([
+            PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET time_zone='-03:00'"
+            ])
+            : [],
         ],
 
 
