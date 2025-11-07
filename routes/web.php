@@ -23,6 +23,9 @@ Route::middleware('auth')->group(function () {
         ->name('items.imprimir')
         ->middleware('auth');
 
+    Route::get('/items/vencidos', [ItemController::class, 'vencidosSnapshot'])
+        ->name('items.vencidos')
+        ->middleware('auth');
 
     // Fichajes (V0)
     Route::get('/fichajes', [FichajesController::class, 'index'])->name('fichajes.index');

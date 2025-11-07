@@ -109,6 +109,29 @@ class ItemController extends Controller
             'stats',
             'ultimaFecha'
         ))->with('fechaHoy', $ultimaFecha);
+
+        // ... dentro de index(), después de calcular $ultimaFecha ($fh actual desde CURRENT)
+        $fhSnap = DB::connection('erp')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot')
+            ->max('fechaHoy') ?? $ultimaFecha;
+
+        // KPI Vencidos DESDE SNAPSHOT (evita doble conteo por ubicación/contenedor)
+        $kpiVencidos = DB::connection('erp')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot as s')
+            ->whereDate('s.fechaHoy', $fhSnap)
+            ->where('s.Unidades', '>', 0)
+            ->whereColumn('s.fechaVencimiento', '<', 's.fechaHoy')
+            ->selectRaw('COUNT(DISTINCT CONCAT(s.ArticuloCodigo,"|",s.fechaVencimiento)) as c')
+            ->value('c');
+
+        // pasarlo a la vista (sumalo al with/compact que ya tenés)
+        return view('items.index', compact(
+            'items','ultimaSync','ultimoCheck','creadoAt','puedeEditar','q','stats','ultimaFecha'
+        ))->with([
+            'fechaHoy'    => $ultimaFecha,
+            'kpiVencidos' => (int) $kpiVencidos,
+        ]);
+
     }
 
     /**
@@ -332,6 +355,53 @@ public function imprimirPendientes(Request $request)
     return view('items.print', [
         'rows'     => $rows,
         'fechaHoy' => $fechaHoy,
+    ]);
+}
+
+public function vencidosSnapshot(\Illuminate\Http\Request $request)
+{
+    // 1) Conseguir el corte (último snapshot)
+    $fh = \DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot')
+        ->max('fechaHoy');
+
+    if (!$fh) {
+        // Si nunca cargaste snapshot, devolvés vacío con la vista
+        return view('items.vencidos', [
+            'rows'     => collect([]),
+            'fechaHoy' => null,
+        ]);
+    }
+
+    // 2) Vencidos en ventana de 45 días (por ítem: ArticuloCodigo + fechaVencimiento)
+    //    Condiciones:
+    //      - mismo corte fh
+    //      - Unidades > 0
+    //      - fechaVencimiento <= fh
+    //      - DATEDIFF(fh, fechaVencimiento) entre 0 y 45
+    $rows = \DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot as s')
+        ->whereDate('s.fechaHoy', $fh)
+        ->where('s.Unidades', '>', 0)
+        ->whereRaw('DATEDIFF(?, s.fechaVencimiento) BETWEEN 0 AND 45', [$fh])
+        ->select([
+            's.ArticuloCodigo',
+            's.ArticuloDescripcion',
+            's.fechaVencimiento',
+            's.Unidades',
+            's.diasRestantes',
+            's.Ubicacion',
+            's.ContenedorNumero',
+        ])
+        ->orderBy('s.fechaVencimiento')
+        ->orderBy('s.ArticuloCodigo')
+        ->orderBy('s.Ubicacion')
+        ->orderBy('s.ContenedorNumero')
+        ->paginate(200);
+
+    return view('items.vencidos', [
+        'rows'     => $rows,
+        'fechaHoy' => $fh,
     ]);
 }
 

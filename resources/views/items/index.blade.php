@@ -42,6 +42,18 @@
         </div>
         <p class="mt-1 text-xs text-gray-500">Vencen en 7 días o menos</p>
       </div>
+      
+            <a href="{{ route('items.vencidos') }}" target="_blank"
+         class="rounded-xl border bg-white p-4 shadow-sm hover:bg-gray-50 transition">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-gray-600">Vencidos (Snapshot)</h3>
+          <span class="text-gray-400">🛑</span>
+        </div>
+        <div class="text-2xl font-semibold text-red-600">
+          {{ number_format($kpiVencidos ?? 0, 0, ',', '.') }}
+        </div>
+        <p class="mt-1 text-xs text-gray-500">Click para ver lista agrupada</p>
+      </a>
     </div>
 
     {{-- Buscador simple --}}
