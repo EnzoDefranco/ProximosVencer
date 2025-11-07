@@ -70,24 +70,38 @@
       </div>
     @endif
 
-    <form method="POST" action="{{ route('items.confirmar') }}" class="space-y-3">
+    {{-- FORM secundario: imprimir (se envía por JS; fuera del form principal) --}}
+    <form method="POST" action="{{ route('items.imprimir') }}" target="_blank" id="form-imprimir" class="hidden">
+      @csrf
+      {{-- inputs hidden se inyectan desde enviarAImprimir() --}}
+    </form>
+
+    {{-- FORM principal: confirmar checks --}}
+    <form method="POST" action="{{ route('items.confirmar') }}" class="space-y-3" id="form-confirmar">
       @csrf
       <input type="hidden" name="fechaHoy" value="{{ $fechaHoy }}">
 
       {{-- Barra de acciones --}}
-      <div class="top-24 md:top-24 z-10 bg-white/90 backdrop-blur border rounded-xl px-3 py-2 shadow-sm flex items-center justify-between">
+      <div class="top-24 md:top-24 z-10 bg-white/90 backdrop-blur border rounded-xl px-3 py-2 shadow-sm flex flex-wrap gap-2 items-center justify-between">
         <div class="text-sm text-gray-600">
           Mostrando {{ $items->firstItem() }}–{{ $items->lastItem() }} de {{ $items->total() }}
           @if(($q ?? '') !== '') · <span class="italic">Filtro: “{{ $q }}”</span> @endif
           · <span class="text-gray-600">Snapshot actual</span>
         </div>
-        @if ($puedeEditar)
-          <button type="submit"
-                  class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring focus:ring-blue-200">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12a9.75 9.75 0 1119.5 0 9.75 9.75 0 01-19.5 0zm14.03-2.53a.75.75 0 00-1.06-1.06l-5.72 5.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75c.3.3.79.3 1.06 0l6.25-6.25z" clip-rule="evenodd"/></svg>
-            Confirmar cambios
-          </button>
-        @endif
+        <div class="flex items-center gap-2">
+          @if ($puedeEditar)
+            <button type="submit"
+                    class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring focus:ring-blue-200">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12a9.75 9.75 0 1119.5 0 9.75 9.75 0 01-19.5 0zm14.03-2.53a.75.75 0 00-1.06-1.06l-5.72 5.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75c.3.3.79.3 1.06 0l6.25-6.25z" clip-rule="evenodd"/></svg>
+              Confirmar cambios
+            </button>
+
+            <button type="button" onclick="enviarAImprimir()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white text-sm font-medium hover:bg-gray-800 focus:outline-none focus:ring focus:ring-gray-200">
+              🖨️ Imprimir pendientes 
+            </button>
+          @endif
+        </div>
       </div>
 
       {{-- Tabla --}}
@@ -101,7 +115,7 @@
               <th class="p-3">Descripción</th>
               <th class="p-3">Vence</th>
               <th class="p-3 text-right">Unidades</th>
-              <th class="p-3 text-right">Δ Unid</th> {{-- hover del historial acá --}}
+              <th class="p-3 text-right">Δ Unid</th>
               <th class="p-3 text-right">Días</th>
             </tr>
           </thead>
@@ -113,13 +127,8 @@
                       : ($d <= 7 ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
                       : ($d <= 30 ? 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'
                                   : 'bg-green-100 text-green-700 ring-1 ring-green-200'));
-
-                // Δ del current (si lo trae el SELECT)
                 $delta = $row->delta_unidades ?? null;
-
-                // Colores Δ:
-                // null → AMARILLO (NEW),  <0 → VERDE (se vendió),  =0 → ROJO (sin cambio),  >0 → GRIS (ingresó)
-                $deltaBadge = 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'; // default (null = NEW)
+                $deltaBadge = 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200';
                 $deltaIcon  = '●';
                 $deltaText  = 'NEW';
                 if (!is_null($delta)) {
@@ -127,8 +136,6 @@
                     elseif ($delta == 0) { $deltaBadge = 'bg-red-100 text-red-700 ring-1 ring-red-200'; $deltaIcon = '■'; $deltaText = '0'; }
                     else { $deltaBadge = 'bg-gray-100 text-gray-700 ring-1 ring-gray-200'; $deltaIcon = '▲'; $deltaText = number_format($delta,0,',','.'); }
                 }
-
-                // Title dinámico para el badge Δ
                 if (is_null($delta)) {
                   $deltaTitle = 'Artículo nuevo en el snapshot (Δ no disponible)';
                 } elseif ($delta < 0) {
@@ -160,7 +167,7 @@
                 <td class="p-3">{{ \Carbon\Carbon::parse($row->fechaVencimiento)->format('d/m/Y') }}</td>
                 <td class="p-3 text-right tabular-nums">{{ number_format($row->Unidades ?? 0, 0, ',', '.') }}</td>
 
-                {{-- Δ del current con HOVER del histórico (sin columna Hist.) --}}
+                {{-- Δ con hover historial --}}
                 <td class="p-3 text-right">
                   <span x-data="hoverHist('{{ route('items.historial', ['codigo' => $row->ArticuloCodigo]) }}?compact=1')"
                         x-on:mouseenter="open($event)" x-on:mouseleave="close($event)"
@@ -170,7 +177,6 @@
                       <span class="font-semibold">{{ $deltaIcon }}</span>
                       <span>{{ $deltaText }}</span>
                     </span>
-                    {{-- Tooltip / Hovercard pegado al badge --}}
                     <div x-show="show"
                          x-transition
                          class="absolute right-0 mt-2 w-[520px] max-w-[90vw] rounded-xl border bg-white shadow-2xl z-50"
@@ -227,7 +233,7 @@
   </script>
   @endif
 
-  {{-- Hovercard de historial (ligero, sin abrir nada) --}}
+  {{-- Hovercard de historial --}}
   <script>
     function hoverHist(url) {
       return {
@@ -246,6 +252,37 @@
         },
         close() { this._timer = setTimeout(() => { this.show = false; }, 120); }
       }
+    }
+
+    // ===== Imprimir seleccionados =====
+    function enviarAImprimir() {
+      const formImprimir = document.getElementById('form-imprimir');
+      formImprimir.innerHTML = `@csrf`; // resetea y reinyecta CSRF
+
+      // Copiar checkeados visibles del form principal
+      document.querySelectorAll('input[name="checked[]"]:checked').forEach(ch => {
+        const i = document.createElement('input');
+        i.type = 'hidden';
+        i.name = 'checked[]';
+        i.value = ch.value;           // id de CURRENT
+        formImprimir.appendChild(i);
+      });
+
+      // Pasar fechaHoy del corte
+      const fhInput = document.querySelector('#form-confirmar input[name="fechaHoy"]');
+      if (fhInput) {
+        const i = document.createElement('input');
+        i.type = 'hidden';
+        i.name = 'fechaHoy';
+        i.value = fhInput.value;
+        formImprimir.appendChild(i);
+      }
+
+      if (!formImprimir.querySelector('input[name="checked[]"]')) {
+        alert('No hay artículos tildados.');
+        return;
+      }
+      formImprimir.submit(); // abre en nueva pestaña (target=_blank)
     }
   </script>
 

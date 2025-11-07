@@ -16,9 +16,9 @@ class ItemController extends Controller
     {
         $q = trim((string) $request->input('q'));
 
-        // Última fechaHoy tomada de CURRENT
+        // Última fechaHoy tomada de CURRENT (nueva tabla)
         $ultimaFecha = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
             ->max('fechaHoy');
 
         if (!$ultimaFecha) {
@@ -35,10 +35,9 @@ class ItemController extends Controller
             ]);
         }
 
-        // Base query: CURRENT en la última fecha
+        // Base query: CURRENT en la última fecha (sin 'activo')
         $qbBase = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current as p')
-            ->where('p.activo', 1)
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current as p')
             ->whereDate('p.fechaHoy', $ultimaFecha)
             ->when($q !== '', function ($qq) use ($q) {
                 $like = '%'.str_replace(['%','_'], ['\\%','\\_'], $q).'%';
@@ -86,15 +85,15 @@ class ItemController extends Controller
 
         // Info superior (de CURRENT)
         $ultimaSync = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
             ->max('last_sync_at');
 
         $creadoAt = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
             ->min('created_at');
 
         $ultimoCheck = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
             ->whereNotNull('checked_at')
             ->max('checked_at');
 
@@ -144,7 +143,7 @@ class ItemController extends Controller
             if ($checkedIds->isNotEmpty()) {
                 foreach ($checkedIds->chunk(500) as $chunk) {
                     DB::connection('erp')
-                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
                         ->whereIn('id', $chunk->all())
                         ->update([
                             'checked'    => 1,
@@ -157,7 +156,7 @@ class ItemController extends Controller
             if ($noMarcados->isNotEmpty()) {
                 foreach ($noMarcados->chunk(500) as $chunk) {
                     DB::connection('erp')
-                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+                        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
                         ->whereIn('id', $chunk->all())
                         ->update([
                             'checked'    => 0,
@@ -170,7 +169,7 @@ class ItemController extends Controller
         });
 
         $verificacion = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_current')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
             ->whereIn('id', $visibleIds)
             ->selectRaw('SUM(checked=1) as tildados, COUNT(*) as visibles')
             ->first();
@@ -184,49 +183,156 @@ class ItemController extends Controller
     /**
      * GET /items/{codigo}/historial
      * Devuelve HTML para hover o modal con snapshots de ese ARTÍCULO (todas las filas del snapshot).
-     * Si ?compact=1, devuelve versión reducida para hovercard.
+     * Si ?compact=1, devuelve versión reducida para hovercard (últimas 5).
      */
     public function historial(Request $request, string $codigo)
     {
-        $rows = DB::connection('erp')
-            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVenc_snapshot')
-            ->where('ArticuloCodigo', $codigo)
-            ->orderByDesc('fechaHoy')
-            ->orderBy('fechaVencimiento')
-            ->select([
-                'ArticuloCodigo',
-                'fechaVencimiento',
-                'fechaHoy',
-                'Unidades',
-                'diasRestantes',
-            ])
-            ->get();
+         // Último corte disponible en CURRENT
+    $ultimaFecha = DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
+        ->max('fechaHoy');
 
-        if ((string)$request->query('compact') === '1') {
-            // calcular delta histórico (entre snapshots)
-            $rows = $rows->values();
-            $withDelta = [];
-            for ($i = 0; $i < count($rows); $i++) {
-                $curr = (object) $rows[$i];
-                $prev = $rows[$i+1] ?? null; // snapshot más viejo
-                $curr->delta_unidades = null;
-                if ($prev) {
-                    $currUnits = is_null($curr->Unidades) ? 0 : (int)$curr->Unidades;
-                    $prevUnits = is_null($prev->Unidades) ? 0 : (int)$prev->Unidades;
-                    $curr->delta_unidades = $currUnits - $prevUnits;
-                }
-                $withDelta[] = $curr;
-            }
-
-            return view('items._historial_compact', [
-                'codigo' => $codigo,
-                'rows'   => collect($withDelta)->take(8), // últimos 8 para tooltip
-            ]);
-        }
-
+    if (!$ultimaFecha) {
         return view('items._historial', [
+            'codigo' => $codigo,
+            'rows'   => collect([]),
+        ]);
+    }
+
+    // Base: todas las filas del CURRENT (mismo corte) para ese artículo
+    $qb = DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current as c')
+        ->where('c.ArticuloCodigo', $codigo)
+        ->whereDate('c.fechaHoy', $ultimaFecha)
+        ->orderBy('c.fechaVencimiento')
+        ->select([
+            'c.ArticuloCodigo',
+            'c.fechaVencimiento',
+            'c.fechaHoy',
+            'c.Unidades',
+            'c.diasRestantes',
+            'c.delta_unidades',   // viene precalculado en CURRENT
+        ]);
+
+    // Versión compacta (para hover): solo 5 filas
+    if ((string) $request->query('compact') === '1') {
+        $rows = $qb->limit(5)->get();
+        return view('items._historial_compact', [
             'codigo' => $codigo,
             'rows'   => $rows,
         ]);
     }
+
+    // Versión completa
+    $rows = $qb->get();
+    return view('items._historial', [
+        'codigo' => $codigo,
+        'rows'   => $rows,
+    ]);
+    }
+
+    /**
+     * POST /items/imprimir-seleccionados
+     * Imprime snapshot de artículos tildados en current (mismo corte).
+     */
+
+// public function imprimirSeleccionados(Request $request)
+// {
+//     abort_unless(\Gate::allows('validar-vencimientos'), 403);
+
+//     $ids = collect($request->input('checked', []))->filter()->unique()->values();
+//     if ($ids->isEmpty()) {
+//         return back()->with('ok', 'No se seleccionaron artículos.');
+//     }
+
+//     $fechaHoy = $request->input('fechaHoy');
+//     if (!$fechaHoy) {
+//         $fechaHoy = \DB::connection('erp')
+//             ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
+//             ->max('fechaHoy');
+//     }
+
+//     // 1) Current tildados (para obtener los códigos elegidos)
+//     $currentRows = \DB::connection('erp')
+//         ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current as c')
+//         ->whereIn('c.id', $ids)
+//         ->select(['c.ArticuloCodigo'])
+//         ->get();
+
+//     if ($currentRows->isEmpty()) {
+//         return back()->with('ok', 'No se encontraron filas en CURRENT.');
+//     }
+
+//     $codigos = $currentRows->pluck('ArticuloCodigo')->unique()->values();
+
+//     // 2) Traer SOLO snapshot de esos códigos en ese corte (PLANO para tabla)
+//     $rows = \DB::connection('erp')
+//         ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot as s')
+//         ->whereIn('s.ArticuloCodigo', $codigos)
+//         ->whereDate('s.fechaHoy', $fechaHoy)
+//         ->orderBy('s.ArticuloCodigo')
+//         ->orderBy('s.fechaVencimiento')
+//         ->orderBy('s.Ubicacion')
+//         ->orderBy('s.ContenedorNumero')
+//         ->select([
+//             's.ArticuloCodigo',
+//             's.ArticuloDescripcion',
+//             's.fechaVencimiento',
+//             's.Unidades',
+//             's.diasRestantes',
+//             's.Ubicacion',
+//             's.ContenedorNumero',
+//         ])->get();
+
+//     return view('items.print', [
+//         'rows'    => $rows,
+//         'fechaHoy'=> $fechaHoy,
+//     ]);
+// }
+
+public function imprimirPendientes(Request $request)
+{
+    abort_unless(\Gate::allows('validar-vencimientos'), 403);
+
+    $fechaHoy = $request->input('fechaHoy') ?: \DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current')
+        ->max('fechaHoy');
+
+    // todos los códigos no chequeados en ese corte
+    $codigos = \DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_current as c')
+        ->whereDate('c.fechaHoy', $fechaHoy)
+        ->where('c.checked', 0)
+        ->pluck('c.ArticuloCodigo')
+        ->unique()
+        ->values();
+
+    if ($codigos->isEmpty()) {
+        return back()->with('ok', 'No hay artículos pendientes para imprimir.');
+    }
+
+    $rows = \DB::connection('erp')
+        ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosProxVenc_snapshot as s')
+        ->whereIn('s.ArticuloCodigo', $codigos)
+        ->whereDate('s.fechaHoy', $fechaHoy)
+        ->orderBy('s.ArticuloCodigo')
+        ->orderBy('s.fechaVencimiento')
+        ->orderBy('s.Ubicacion')
+        ->orderBy('s.ContenedorNumero')
+        ->select([
+            's.ArticuloCodigo',
+            's.ArticuloDescripcion',
+            's.fechaVencimiento',
+            's.Unidades',
+            's.diasRestantes',
+            's.Ubicacion',
+            's.ContenedorNumero',
+        ])->get();
+
+    return view('items.print', [
+        'rows'     => $rows,
+        'fechaHoy' => $fechaHoy,
+    ]);
+}
+
 }

@@ -19,6 +19,10 @@ Route::middleware('auth')->group(function () {
         ->name('items.confirmar');
     Route::get('/items/{codigo}/historial', [ItemController::class, 'historial'])
         ->name('items.historial');
+    Route::post('/items/print', [\App\Http\Controllers\ItemController::class, 'imprimirPendientes'])
+        ->name('items.imprimir')
+        ->middleware('auth');
+
 
     // Fichajes (V0)
     Route::get('/fichajes', [FichajesController::class, 'index'])->name('fichajes.index');

@@ -7,14 +7,14 @@
     <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
       <h1 class="text-2xl font-semibold">Seguimiento de Vendedores</h1>
       <form method="get" class="flex flex-wrap gap-2 items-center">
-        <input type="date" name="fecha" value="{{ $fecha }}" class="border rounded px-2 py-1">
-        <select name="zona" class="border rounded px-2 py-1">
+        <input type="date" name="fecha" value="{{ $fecha }}" class="border rounded-lg px-3 py-2 text-gray-700 focus:ring focus:ring-blue-200">
+        <select name="zona" class="border rounded-lg px-3 py-2 w-48 md:w-60 text-gray-700 focus:ring focus:ring-blue-200">
           <option value="">Todas las zonas</option>
           @foreach($zonas as $id => $nombre)
             <option value="{{ $id }}" @selected($zona===$id)>{{ $nombre }}</option>
           @endforeach
         </select>
-        <input type="text" name="q" value="{{ $q }}" placeholder="Buscar vendedor/cliente" class="border rounded px-2 py-1 w-64">
+        <input type="text" name="q" value="{{ $q }}" placeholder="Buscar vendedor/cliente" class="border rounded-lg px-3 py-2 w-64 text-gray-700 placeholder-gray-400 focus:ring focus:ring-blue-200">
         <button class="bg-blue-600 text-white rounded px-3 py-1">Filtrar</button>
       </form>
     </div>
