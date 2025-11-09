@@ -1,5 +1,7 @@
 <div class="p-3">
-  <div class="text-xs text-gray-500 mb-2">Histórico (últimos snapshots)</div>
+  <div class="text-xs text-gray-500 mb-2">
+    Histórico (últimos snapshots) — Art. {{ $codigo }}
+  </div>
   <table class="min-w-full text-xs">
     <thead>
       <tr class="text-left text-gray-600">
@@ -13,7 +15,7 @@
     <tbody>
       @forelse($rows as $r)
         @php
-          $delta = $r->delta_unidades ?? null;
+          $delta = $r->delta_unidades;
           $b = 'bg-gray-100 text-gray-700 ring-1 ring-gray-200'; $ico = '—';
           if (!is_null($delta)) {
             if ($delta < 0) { $b = 'bg-green-100 text-green-700 ring-1 ring-green-200'; $ico = '▼'; }

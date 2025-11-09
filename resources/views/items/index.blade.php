@@ -11,7 +11,7 @@
   <div class="mx-auto max-w-7xl p-4 md:p-8 space-y-4">
 
     {{-- KPIs --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       <div class="rounded-xl border bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-sm font-semibold text-gray-600">Total artículos</h3>
@@ -42,8 +42,8 @@
         </div>
         <p class="mt-1 text-xs text-gray-500">Vencen en 7 días o menos</p>
       </div>
-      
-            <a href="{{ route('items.vencidos') }}" target="_blank"
+
+      <a href="{{ route('items.vencidos') }}" target="_blank"
          class="rounded-xl border bg-white p-4 shadow-sm hover:bg-gray-50 transition">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-sm font-semibold text-gray-600">Vencidos (Snapshot)</h3>
@@ -54,6 +54,7 @@
         </div>
         <p class="mt-1 text-xs text-gray-500">Click para ver lista agrupada</p>
       </a>
+
     </div>
 
     {{-- Buscador simple --}}
@@ -110,7 +111,7 @@
 
             <button type="button" onclick="enviarAImprimir()"
                     class="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white text-sm font-medium hover:bg-gray-800 focus:outline-none focus:ring focus:ring-gray-200">
-              🖨️ Imprimir pendientes 
+              🖨️ Imprimir pendientes
             </button>
           @endif
         </div>
@@ -139,6 +140,7 @@
                       : ($d <= 7 ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
                       : ($d <= 30 ? 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'
                                   : 'bg-green-100 text-green-700 ring-1 ring-green-200'));
+
                 $delta = $row->delta_unidades ?? null;
                 $deltaBadge = 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200';
                 $deltaIcon  = '●';
@@ -179,11 +181,13 @@
                 <td class="p-3">{{ \Carbon\Carbon::parse($row->fechaVencimiento)->format('d/m/Y') }}</td>
                 <td class="p-3 text-right tabular-nums">{{ number_format($row->Unidades ?? 0, 0, ',', '.') }}</td>
 
-                {{-- Δ con hover historial --}}
+                {{-- Δ con hover historial (últimas 5 fechas de snapshot para ese artículo+vto) --}}
                 <td class="p-3 text-right">
-                  <span x-data="hoverHist('{{ route('items.historial', ['codigo' => $row->ArticuloCodigo]) }}?compact=1')"
-                        x-on:mouseenter="open($event)" x-on:mouseleave="close($event)"
-                        class="relative inline-flex">
+                  <span
+                    x-data="hoverHist('{{ route('items.historial', ['codigo' => $row->ArticuloCodigo]) }}?compact=1&vto={{ \Carbon\Carbon::parse($row->fechaVencimiento)->toDateString() }}')"
+                    x-on:mouseenter="open($event)" x-on:mouseleave="close($event)"
+                    class="relative inline-flex"
+                  >
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $deltaBadge }}"
                           title="{{ $deltaTitle }}" aria-label="{{ $deltaTitle }}">
                       <span class="font-semibold">{{ $deltaIcon }}</span>
