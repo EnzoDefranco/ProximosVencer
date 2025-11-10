@@ -26,6 +26,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/items/vencidos', [ItemController::class, 'vencidosSnapshot'])
         ->name('items.vencidos')
         ->middleware('auth');
+    Route::get('/items/corregidos',         [ItemController::class, 'corregidosHistorico'])->name('items.corregidos')
+        ->middleware('auth');
 
     // Fichajes (V0)
     Route::get('/fichajes', [FichajesController::class, 'index'])->name('fichajes.index');

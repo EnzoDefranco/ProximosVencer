@@ -11,7 +11,7 @@
   <div class="mx-auto max-w-7xl p-4 md:p-8 space-y-4">
 
     {{-- KPIs --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <div class="rounded-xl border bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-sm font-semibold text-gray-600">Total artículos</h3>
@@ -32,40 +32,39 @@
         </div>
       </div>
 
-      <div class="rounded-xl border bg-white p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-semibold text-gray-600">Urgentes</h3>
-          <span class="text-gray-400">⏳</span>
-        </div>
-        <div class="text-2xl font-semibold text-red-600">
-          {{ number_format($stats['urgentes'],0,',','.') }}
-        </div>
-        <p class="mt-1 text-xs text-gray-500">Vencen en 7 días o menos</p>
-      </div>
-
       <a href="{{ route('items.vencidos') }}" target="_blank"
          class="rounded-xl border bg-white p-4 shadow-sm hover:bg-gray-50 transition">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-semibold text-gray-600">Vencidos (Snapshot)</h3>
+          <h3 class="text-sm font-semibold text-gray-600">Vencidos (45 días)</h3>
           <span class="text-gray-400">🛑</span>
         </div>
         <div class="text-2xl font-semibold text-red-600">
           {{ number_format($kpiVencidos ?? 0, 0, ',', '.') }}
         </div>
-        <p class="mt-1 text-xs text-gray-500">Click para ver lista agrupada</p>
+        <p class="mt-1 text-xs text-gray-500">Click para ver</p>
       </a>
 
+      <a href="{{ route('items.corregidos') }}"
+         class="rounded-xl border bg-white p-4 shadow-sm hover:bg-gray-50 transition">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-gray-600">Movimientos (sup.)</h3>
+          <span class="text-gray-400">♻️</span>
+        </div>
+        <div class="text-2xl font-semibold text-blue-700">
+          {{ number_format($kpiMovimientos ?? 0, 0, ',', '.') }}
+        </div>
+        <p class="mt-1 text-xs text-gray-500">Corregidos + Desap. del corte</p>
+      </a>
     </div>
 
-    {{-- Buscador simple --}}
+    {{-- Buscador --}}
     <form method="GET" action="{{ route('items.index') }}"
           class="flex flex-wrap items-center gap-3 bg-white rounded-xl border p-3 shadow-sm">
       <div class="flex items-center gap-2">
         <input type="text" name="q" value="{{ $q ?? '' }}" placeholder="Buscar código o descripción…"
                class="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200 min-w-[240px]">
         @if(($q ?? '') !== '')
-          <a href="{{ route('items.index') }}"
-             class="text-sm text-gray-600 hover:text-gray-800 underline">Limpiar</a>
+          <a href="{{ route('items.index') }}" class="text-sm text-gray-600 hover:text-gray-800 underline">Limpiar</a>
         @endif
         <button class="hidden md:inline-flex text-sm rounded-lg border px-3 py-2 hover:bg-gray-50" type="submit">Buscar</button>
       </div>
@@ -83,19 +82,18 @@
       </div>
     @endif
 
-    {{-- FORM secundario: imprimir (se envía por JS; fuera del form principal) --}}
+    {{-- FORM imprimir oculto --}}
     <form method="POST" action="{{ route('items.imprimir') }}" target="_blank" id="form-imprimir" class="hidden">
       @csrf
-      {{-- inputs hidden se inyectan desde enviarAImprimir() --}}
     </form>
 
-    {{-- FORM principal: confirmar checks --}}
+    {{-- FORM confirmar --}}
     <form method="POST" action="{{ route('items.confirmar') }}" class="space-y-3" id="form-confirmar">
       @csrf
       <input type="hidden" name="fechaHoy" value="{{ $fechaHoy }}">
 
-      {{-- Barra de acciones --}}
-      <div class="top-24 md:top-24 z-10 bg-white/90 backdrop-blur border rounded-xl px-3 py-2 shadow-sm flex flex-wrap gap-2 items-center justify-between">
+      {{-- barra acciones --}}
+      <div class="z-10 bg-white/90 backdrop-blur border rounded-xl px-3 py-2 shadow-sm flex flex-wrap gap-2 items-center justify-between">
         <div class="text-sm text-gray-600">
           Mostrando {{ $items->firstItem() }}–{{ $items->lastItem() }} de {{ $items->total() }}
           @if(($q ?? '') !== '') · <span class="italic">Filtro: “{{ $q }}”</span> @endif
@@ -105,10 +103,8 @@
           @if ($puedeEditar)
             <button type="submit"
                     class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring focus:ring-blue-200">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M2.25 12a9.75 9.75 0 1119.5 0 9.75 9.75 0 01-19.5 0zm14.03-2.53a.75.75 0 00-1.06-1.06l-5.72 5.72-2.22-2.22a.75.75 0 10-1.06 1.06l2.75 2.75c.3.3.79.3 1.06 0l6.25-6.25z" clip-rule="evenodd"/></svg>
-              Confirmar cambios
+              Guardar cambios
             </button>
-
             <button type="button" onclick="enviarAImprimir()"
                     class="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white text-sm font-medium hover:bg-gray-800 focus:outline-none focus:ring focus:ring-gray-200">
               🖨️ Imprimir pendientes
@@ -117,10 +113,10 @@
         </div>
       </div>
 
-      {{-- Tabla --}}
+      {{-- tabla --}}
       <div class="overflow-x-auto bg-white rounded-xl border shadow-sm">
         <table class="min-w-full text-sm">
-          <thead class="bg-gray-50 top-40 md:top-40 z-10">
+          <thead class="bg-gray-50">
             <tr class="text-left text-gray-600">
               <th class="p-3 w-12">OK</th>
               <th class="p-3">Artículo</th>
@@ -140,54 +136,37 @@
                       : ($d <= 7 ? 'bg-red-100 text-red-700 ring-1 ring-red-200'
                       : ($d <= 30 ? 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'
                                   : 'bg-green-100 text-green-700 ring-1 ring-green-200'));
-
-                $delta = $row->delta_unidades ?? null;
-                $deltaBadge = 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200';
-                $deltaIcon  = '●';
-                $deltaText  = 'NEW';
+                $delta = $row->delta_unidades;
+                $deltaBadge = 'bg-yellow-100 text-yellow-800 ring-1 ring-yellow-200'; $deltaIcon = '●'; $deltaText = 'NEW';
                 if (!is_null($delta)) {
-                    if ($delta < 0) { $deltaBadge = 'bg-green-100 text-green-700 ring-1 ring-green-200'; $deltaIcon = '▼'; $deltaText = number_format($delta,0,',','.'); }
-                    elseif ($delta == 0) { $deltaBadge = 'bg-red-100 text-red-700 ring-1 ring-red-200'; $deltaIcon = '■'; $deltaText = '0'; }
-                    else { $deltaBadge = 'bg-gray-100 text-gray-700 ring-1 ring-gray-200'; $deltaIcon = '▲'; $deltaText = number_format($delta,0,',','.'); }
+                    if ($delta < 0) { $deltaBadge='bg-green-100 text-green-700 ring-1 ring-green-200'; $deltaIcon='▼'; $deltaText=number_format($delta,0,',','.'); }
+                    elseif ($delta == 0) { $deltaBadge='bg-red-100 text-red-700 ring-1 ring-red-200'; $deltaIcon='■'; $deltaText='0'; }
+                    else { $deltaBadge='bg-gray-100 text-gray-700 ring-1 ring-gray-200'; $deltaIcon='▲'; $deltaText=number_format($delta,0,',','.'); }
                 }
-                if (is_null($delta)) {
-                  $deltaTitle = 'Artículo nuevo en el snapshot (Δ no disponible)';
-                } elseif ($delta < 0) {
-                  $deltaTitle = 'Bajó ' . number_format(abs($delta), 0, ',', '.') . ' unidades vs snapshot anterior';
-                } elseif ($delta == 0) {
-                  $deltaTitle = 'Sin cambios vs snapshot anterior';
-                } else {
-                  $deltaTitle = 'Subió ' . number_format($delta, 0, ',', '.') . ' unidades vs snapshot anterior';
-                }
+                $deltaTitle = is_null($delta) ? 'Artículo nuevo en snapshot' :
+                              ($delta < 0 ? 'Bajó ' . number_format(abs($delta),0,',','.') :
+                              ($delta == 0 ? 'Sin cambios' : 'Subió ' . number_format($delta,0,',','.')));
               @endphp
-
               <tr class="border-t border-gray-100 hover:bg-blue-50/40 transition">
                 <td class="p-3 text-center">
                   <input type="hidden" name="visible[]" value="{{ $row->id }}">
                   @if ($puedeEditar)
-                    <input type="checkbox"
-                           name="checked[]"
-                           value="{{ $row->id }}"
-                           @checked($row->checked)
-                           class="h-4 w-4 accent-blue-600 kpi-watch">
+                    <input type="checkbox" name="checked[]" value="{{ $row->id }}" @checked($row->checked) class="h-4 w-4 accent-blue-600 kpi-watch">
                   @else
                     <input type="checkbox" disabled @checked($row->checked) class="h-4 w-4 opacity-60">
                   @endif
                 </td>
-
                 <td class="p-3 font-mono text-gray-900">{{ $row->ArticuloCodigo }}</td>
                 <td class="p-3 text-gray-800">{{ \Carbon\Carbon::parse($row->created_at)->format('d/m/Y') }}</td>
                 <td class="p-3 text-gray-800">{{ $row->ArticuloDescripcion }}</td>
                 <td class="p-3">{{ \Carbon\Carbon::parse($row->fechaVencimiento)->format('d/m/Y') }}</td>
                 <td class="p-3 text-right tabular-nums">{{ number_format($row->Unidades ?? 0, 0, ',', '.') }}</td>
 
-                {{-- Δ con hover historial (últimas 5 fechas de snapshot para ese artículo+vto) --}}
+                {{-- Δ con hover historial (paso vto en query) --}}
                 <td class="p-3 text-right">
-                  <span
-                    x-data="hoverHist('{{ route('items.historial', ['codigo' => $row->ArticuloCodigo]) }}?compact=1&vto={{ \Carbon\Carbon::parse($row->fechaVencimiento)->toDateString() }}')"
-                    x-on:mouseenter="open($event)" x-on:mouseleave="close($event)"
-                    class="relative inline-flex"
-                  >
+                  <span x-data="hoverHist('{{ route('items.historial', ['codigo' => $row->ArticuloCodigo]) }}?vto={{ \Carbon\Carbon::parse($row->fechaVencimiento)->toDateString() }}&compact=1')"
+                        x-on:mouseenter="open($event)" x-on:mouseleave="close($event)"
+                        class="relative inline-flex">
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {{ $deltaBadge }}"
                           title="{{ $deltaTitle }}" aria-label="{{ $deltaTitle }}">
                       <span class="font-semibold">{{ $deltaIcon }}</span>
@@ -212,16 +191,14 @@
         </table>
       </div>
 
-      {{-- Paginación --}}
+      {{-- paginación --}}
       <div class="flex items-center justify-between">
         <div class="text-sm text-gray-600">{{ $items->links() }}</div>
       </div>
     </form>
-
   </div>
 
-  {{-- KPI en vivo (opcional) --}}
-  @if ($puedeEditar)
+  {{-- KPI live (opcional) --}}
   <script>
     (function () {
       const total     = {{ (int)$stats['total'] }};
@@ -246,11 +223,7 @@
 
       elChecks.forEach(ch => ch.addEventListener('change', recalc));
     })();
-  </script>
-  @endif
 
-  {{-- Hovercard de historial --}}
-  <script>
     function hoverHist(url) {
       return {
         show: false,
@@ -270,27 +243,20 @@
       }
     }
 
-    // ===== Imprimir seleccionados =====
     function enviarAImprimir() {
       const formImprimir = document.getElementById('form-imprimir');
-      formImprimir.innerHTML = `@csrf`; // resetea y reinyecta CSRF
+      formImprimir.innerHTML = `@csrf`;
 
-      // Copiar checkeados visibles del form principal
       document.querySelectorAll('input[name="checked[]"]:checked').forEach(ch => {
         const i = document.createElement('input');
-        i.type = 'hidden';
-        i.name = 'checked[]';
-        i.value = ch.value;           // id de CURRENT
+        i.type = 'hidden'; i.name = 'checked[]'; i.value = ch.value;
         formImprimir.appendChild(i);
       });
 
-      // Pasar fechaHoy del corte
       const fhInput = document.querySelector('#form-confirmar input[name="fechaHoy"]');
       if (fhInput) {
         const i = document.createElement('input');
-        i.type = 'hidden';
-        i.name = 'fechaHoy';
-        i.value = fhInput.value;
+        i.type = 'hidden'; i.name = 'fechaHoy'; i.value = fhInput.value;
         formImprimir.appendChild(i);
       }
 
@@ -298,11 +264,10 @@
         alert('No hay artículos tildados.');
         return;
       }
-      formImprimir.submit(); // abre en nueva pestaña (target=_blank)
+      formImprimir.submit();
     }
   </script>
 
-  {{-- Alpine --}}
   <script> window.deferAlpineInit = true; </script>
   <script src="https://unpkg.com/alpinejs" defer></script>
 </x-app-layout>
