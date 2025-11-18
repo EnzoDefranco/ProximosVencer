@@ -3,42 +3,61 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FichajesController;
-
 use App\Http\Controllers\ItemController;
 
 Route::get('/', fn() => redirect('/items'));
 
 Route::get('/dashboard', fn() => view('dashboard'))
-    ->middleware(['auth', 'verified'])->name('dashboard');
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    // Items
-    Route::get('/items', [ItemController::class, 'index'])->name('items.index');
+
+    /*
+    |--------------------------------------------------------------------------
+    | ITEMS
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/items', [ItemController::class, 'index'])
+        ->name('items.index');
+
     Route::post('/items/confirmar', [ItemController::class, 'confirmar'])
         ->middleware('can:validar-vencimientos')
         ->name('items.confirmar');
+
     Route::get('/items/{codigo}/historial', [ItemController::class, 'historial'])
         ->name('items.historial');
-    Route::post('/items/print', [\App\Http\Controllers\ItemController::class, 'imprimirPendientes'])
-        ->name('items.imprimir')
-        ->middleware('auth');
 
-    Route::get('/items/vencidos', [ItemController::class, 'vencidosSnapshot'])
-        ->name('items.vencidos')
-        ->middleware('auth');
-    Route::get('/items/corregidos',         [ItemController::class, 'corregidosHistorico'])->name('items.corregidos')
-        ->middleware('auth');
+    Route::post('/items/print', [ItemController::class, 'imprimirPendientes'])
+        ->name('items.imprimir');
 
-    // Fichajes (V0)
-    Route::get('/fichajes', [FichajesController::class, 'index'])->name('fichajes.index');
+    // Vencidos
+    Route::get('/vencidos', [ItemController::class, 'vencidos'])->name('vencidos.index');
+    Route::post('/vencidos/print', [ItemController::class, 'imprimirVencidos'])->name('vencidos.print');
+    /*
+    |--------------------------------------------------------------------------
+    | FICHAJES
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/fichajes', [FichajesController::class, 'index'])
+        ->name('fichajes.index');
+
     Route::get('/fichajes/detalle/{empleado}', [FichajesController::class, 'detalle'])
         ->name('fichajes.detalle');
 
-    // Perfil
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
+    /*
+    |--------------------------------------------------------------------------
+    | PERFIL
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/profile', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
 
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
+
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
+});
 
 require __DIR__.'/auth.php';
