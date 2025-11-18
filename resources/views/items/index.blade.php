@@ -39,12 +39,15 @@
         </div>
 
         {{-- VENCIDOS 7 DÍAS --}}
-        <div class="rounded-xl border border-red-300 bg-white p-5 shadow-sm hover:shadow transition">
-            <h3 class="text-sm font-semibold text-gray-600">Vencidos últimos 7 días</h3>
-            <div class="text-4xl font-extrabold mt-1 text-red-600">
-                {{ number_format($kpiVencidos,0,',','.') }}
-            </div>
-        </div>
+          <a href="{{ route('vencidos.index', ['desde' => now()->subDays(7)->toDateString(), 'hasta' => now()->toDateString()]) }}"
+            class="rounded-xl border border-red-300 bg-white p-5 shadow-sm hover:shadow hover:bg-red-50 transition block">
+              <h3 class="text-sm font-semibold text-gray-600">Vencidos últimos 7 días</h3>
+              <div class="text-4xl font-extrabold mt-1 text-red-600">
+                  {{ number_format($kpiVencidos,0,',','.') }}
+              </div>
+              <p class="mt-1 text-xs text-gray-500">Click para ver</p>
+          </a>
+
 
         {{-- PRÓXIMOS 30 DÍAS --}}
         <div class="rounded-xl border border-[#012b67]/20 bg-white p-5 shadow-sm hover:shadow transition">
