@@ -21,6 +21,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/items', [ItemController::class, 'index'])
         ->name('items.index');
 
+    Route::get('/items/exportar', [ItemController::class, 'exportar'])
+        ->name('items.exportar');
+
     Route::post('/items/confirmar', [ItemController::class, 'confirmar'])
         ->middleware('can:validar-vencimientos')
         ->name('items.confirmar');
@@ -60,4 +63,4 @@ Route::middleware('auth')->group(function () {
         ->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

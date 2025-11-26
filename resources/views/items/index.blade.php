@@ -128,9 +128,14 @@
             </button>
 
             <button type="button" onclick="enviarAImprimir()"
-              class="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white text-sm font-medium hover:bg-gray-800">
+              class="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white text-sm font-medium hover:bg-gray-800 focus:outline-none focus:ring focus:ring-gray-200">
               🖨️ Imprimir pendientes
             </button>
+
+            <a href="{{ route('items.exportar', ['q' => $q]) }}"
+              class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white text-sm font-medium hover:bg-green-700 focus:outline-none focus:ring focus:ring-green-200">
+              📊 Exportar a Excel
+            </a>
           @endif
         </div>
       </div>
