@@ -380,6 +380,7 @@ class ItemController extends Controller
         // Listado paginado
         $rows = $query
             ->select([
+                'v.id',
                 'v.ArticuloCodigo',
                 'v.ArticuloDescripcion',
                 'v.fechaVencimiento',
@@ -452,6 +453,19 @@ class ItemController extends Controller
             'hasta' => $hasta,
             'q' => $q,
         ]);
+    }
+
+    /** DELETE /vencidos/{id} — elimina registro de control */
+    public function destroyVencido($id)
+    {
+        abort_unless(\Gate::allows('eliminar-vencidos'), 403);
+
+        DB::connection('erp')
+            ->table('dw_reproc_tablas_aux.ENRO_DIGIP_articulosVencidos_control')
+            ->where('id', $id)
+            ->delete();
+
+        return back()->with('ok', 'Artículo eliminado de la lista de vencidos.');
     }
 
 }

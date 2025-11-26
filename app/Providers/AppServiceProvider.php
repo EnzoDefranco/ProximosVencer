@@ -20,5 +20,9 @@ class AppServiceProvider extends ServiceProvider
             // Ajustá si tu columna se llama distinto
             return in_array($user->role ?? '', ['admin', 'deposito']);
         });
+
+        Gate::define('eliminar-vencidos', function ($user) {
+            return ($user->role ?? '') === 'admin';
+        });
     }
 }

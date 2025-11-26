@@ -37,6 +37,7 @@ Route::middleware('auth')->group(function () {
     // Vencidos
     Route::get('/vencidos', [ItemController::class, 'vencidos'])->name('vencidos.index');
     Route::post('/vencidos/print', [ItemController::class, 'imprimirVencidos'])->name('vencidos.print');
+    Route::delete('/vencidos/{id}', [ItemController::class, 'destroyVencido'])->name('vencidos.destroy');
     /*
     |--------------------------------------------------------------------------
     | FICHAJES
