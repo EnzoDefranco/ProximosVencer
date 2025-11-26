@@ -28,7 +28,14 @@
           <td class="py-1 pr-2">{{ \Carbon\Carbon::parse($r->fechaVencimiento)->format('d/m/Y') }}</td>
           <td class="py-1 pr-2 text-right">{{ number_format($r->Unidades ?? 0, 0, ',', '.') }}</td>
           <td class="py-1 pr-2 text-right">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full {{ $b }}">
+            @php
+                $hoverText = 'Artículo nuevo';
+                if (!is_null($delta)) {
+                    $prev = ($r->Unidades ?? 0) - $delta;
+                    $hoverText = "Stock anterior: " . number_format($prev, 0, ',', '.');
+                }
+            @endphp
+            <span title="{{ $hoverText }}" class="cursor-help inline-flex items-center gap-1 px-2 py-0.5 rounded-full {{ $b }}">
               <span class="font-semibold">{{ $ico }}</span>
               <span>{{ is_null($delta) ? '—' : number_format($delta,0,',','.') }}</span>
             </span>
