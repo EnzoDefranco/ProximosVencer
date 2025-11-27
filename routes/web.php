@@ -62,6 +62,24 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
+
+    /*
+    |--------------------------------------------------------------------------
+    | USUARIOS
+    |--------------------------------------------------------------------------
+    */
+    Route::resource('users', \App\Http\Controllers\UserController::class);
+
+    /*
+    |--------------------------------------------------------------------------
+    | CAMBIO DE CONTRASEÑA OBLIGATORIO
+    |--------------------------------------------------------------------------
+    */
+    Route::get('change-password', [\App\Http\Controllers\Auth\ChangePasswordController::class, 'show'])
+        ->name('password.change');
+
+    Route::post('change-password', [\App\Http\Controllers\Auth\ChangePasswordController::class, 'update'])
+        ->name('password.change.update');
 });
 
 require __DIR__ . '/auth.php';
